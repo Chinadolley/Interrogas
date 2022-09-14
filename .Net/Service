@@ -1,0 +1,242 @@
+public class SurveyInstanceService : ISurveyInstanceService
+    {
+        IDataProvider _data = null;
+        IUserService _user = null;
+        ILookUpService _lookUp = null;
+        public SurveyInstanceService(IDataProvider data, IUserService user, ILookUpService lookUp)
+        {
+            _data = data;
+            _user = user;
+            _lookUp = lookUp;
+        }
+        public int Add(SurveyInstanceAddRequest model, int userId)
+        {
+            int id = 0;
+            string procName = "[dbo].[SurveysInstances_Insert]";
+            _data.ExecuteNonQuery(procName,
+            inputParamMapper: delegate (SqlParameterCollection collection)
+            {
+                AddSurveyInstance(model, collection, userId);
+
+                SqlParameter idOut = new SqlParameter("@id", SqlDbType.Int);
+                idOut.Direction = ParameterDirection.Output;
+                collection.Add(idOut);
+            },
+            returnParameters: delegate (SqlParameterCollection returnCollection)
+            {
+                object idCreated = returnCollection["@id"].Value;
+                int.TryParse(idCreated.ToString(), out id);
+
+            });
+            return id;
+        }
+        private static void AddSurveyInstance(SurveyInstanceAddRequest model, SqlParameterCollection collection, int UserId)
+        {
+            collection.AddWithValue("@SurveyId", model.SurveyId);
+            collection.AddWithValue("@UserId", UserId);
+            collection.AddWithValue("@StatusId", model.StatusId);
+        }
+        public void Update(SurveyInstanceUpdateRequest model)
+        {
+            string procName = "[dbo].[SurveysInstances_Update]";
+            _data.ExecuteNonQuery(procName,
+            inputParamMapper: delegate (SqlParameterCollection collection)
+            {
+                collection.AddWithValue("@Id", model.Id);
+                collection.AddWithValue("@StatusId", model.StatusId);
+            },
+            returnParameters: null);
+        }
+        public SurveyInstance GetByInstanceId(int id)
+        {
+            string procName = "[dbo].[SurveysInstances_SelectById]";
+            SurveyInstance instance = null;
+            _data.ExecuteCmd(procName, delegate (SqlParameterCollection paramCollection)
+            {
+                paramCollection.AddWithValue("@InstanceId", id);
+            }, delegate (IDataReader reader, short set)
+            {
+                int startingIndex = 0;
+                instance = MapInstance(reader, ref startingIndex);
+            });
+            return instance;
+        }
+        public SurveyForChart GetBySurveyId(int id)
+        {
+            string procName = "[dbo].[SurveysInstances_SelectBySurveyId]";
+            SurveyForChart survey = null;
+            _data.ExecuteCmd(procName, delegate (SqlParameterCollection paramCollection)
+            {
+                paramCollection.AddWithValue("@SurveyId", id);
+            }, delegate (IDataReader reader, short set)
+            {
+                int startingIndex = 0;
+                survey = MapSurveyById(reader, ref startingIndex);
+                
+            });
+            return survey;
+        }
+        public List<LookUp> GetSurveyNames()
+        {
+            string procName = "[dbo].[SurveysInstances_SelectSurveyNames]";
+            List<LookUp> list = null;
+            _data.ExecuteCmd(procName,null, delegate (IDataReader reader, short set)
+            {
+                int startingIndex = 0;
+                LookUp surveyNames = _lookUp.MapLookUp(reader, ref startingIndex);
+                if (list == null)
+                {
+                    list = new List<LookUp>();
+                }
+
+                list.Add(surveyNames);
+            });
+            return list;
+        }
+        public Paged<SurveyInstance> GetInstancesBySurveyId(int pageIndex, int pageSize, int id)
+        {
+            string procName = "[dbo].[SurveysInstances_SelectAllBySurveyId]";
+            Paged<SurveyInstance> pagedList = null;
+            List<SurveyInstance> list = null;
+            int totalCount = 0;
+            _data.ExecuteCmd(procName, delegate (SqlParameterCollection paramCollection)
+            {
+                paramCollection.AddWithValue("@PageIndex", pageIndex);
+                paramCollection.AddWithValue("@PageSize", pageSize);
+                paramCollection.AddWithValue("@SurveyId", id);
+            }, delegate (IDataReader reader, short set)
+            {
+                int startingIndex = 0;
+                SurveyInstance instance = MapInstance(reader, ref startingIndex);
+                if (totalCount == 0)
+                {
+                    totalCount = reader.GetSafeInt32(startingIndex++);
+                }
+                if (list == null)
+                {
+                    list = new List<SurveyInstance>();
+                }
+                list.Add(instance);
+            });
+            if (list != null)
+            {
+                pagedList = new Paged<SurveyInstance>(list, pageIndex, pageSize, totalCount);
+            }
+            return pagedList;
+        }
+
+        private static SurveyForChart MapSurveyById(IDataReader reader, ref int startingIndex)
+        {
+            SurveyForChart instance = new SurveyForChart();
+            instance.SurveyId = reader.GetSafeInt32(startingIndex++);
+            instance.SurveyName = reader.GetSafeString(startingIndex++);
+            instance.Description = reader.GetSafeString(startingIndex++);
+            instance.Questions = reader.DeserializeObject<List<SurveyQuestion>>(startingIndex++);
+            return instance;
+        }
+        public Paged<SurveyInstance> Pagination(int pageIndex, int pageSize)
+        {
+            string procName = "[dbo].[SurveysInstances_SelectAll]";
+            Paged<SurveyInstance> pagedList = null;
+            List<SurveyInstance> list = null;
+            int totalCount = 0;
+            _data.ExecuteCmd(procName, delegate (SqlParameterCollection paramCollection)
+            {
+                paramCollection.AddWithValue("@pageIndex", pageIndex);
+                paramCollection.AddWithValue("@pageSize", pageSize);
+            }, delegate (IDataReader reader, short set)
+            {
+                int startingIndex = 0;
+                SurveyInstance instance = MapInstance(reader, ref startingIndex);
+                if (totalCount == 0)
+                {
+                    totalCount = reader.GetSafeInt32(startingIndex++);
+                }
+                if (list == null)
+                {
+                    list = new List<SurveyInstance>();
+                }
+                list.Add(instance);
+            });
+            if (list != null)
+            {
+                pagedList = new Paged<SurveyInstance>(list, pageIndex, pageSize, totalCount);
+            }
+            return pagedList;
+        }
+        public Paged<SurveyInstance> Search(int pageIndex, int pageSize, string query)
+        {
+            string procName = "[dbo].[SurveysInstances_Search]";
+            Paged<SurveyInstance> pagedList = null;
+            List<SurveyInstance> list = null;
+            int totalCount = 0;
+            _data.ExecuteCmd(procName, delegate (SqlParameterCollection paramCollection)
+            {
+                paramCollection.AddWithValue("@PageIndex", pageIndex);
+                paramCollection.AddWithValue("@PageSize", pageSize);
+                paramCollection.AddWithValue("@Query", query);
+            }, delegate (IDataReader reader, short set)
+            {
+                int startingIndex = 0;
+                SurveyInstance instance = MapInstance(reader, ref startingIndex);
+                if (totalCount == 0)
+                {
+                    totalCount = reader.GetSafeInt32(startingIndex++);
+                }
+                if (list == null)
+                {
+                    list = new List<SurveyInstance>();
+                }
+                list.Add(instance);
+            });
+            if (list != null)
+            {
+                pagedList = new Paged<SurveyInstance>(list, pageIndex, pageSize, totalCount);
+            }
+            return pagedList;
+        }
+        public List<SurveyAnswersForChart> GetByQuestionId(int id)
+        {
+            string procName = "[dbo].[SurveysInstances_SelectForChart]";
+            List<SurveyAnswersForChart> list = null;
+            _data.ExecuteCmd(procName, delegate (SqlParameterCollection paramCollection)
+            {
+                paramCollection.AddWithValue("@QuestionId", id);
+            }, delegate (IDataReader reader, short set)
+            {
+                int startingIndex = 0;
+                SurveyAnswersForChart answers = MapSurveyByQuestionId(reader, ref startingIndex);
+                if (list == null)
+                {
+                    list = new List<SurveyAnswersForChart>();
+                }
+
+                list.Add(answers);
+            });
+            return list;
+        }
+        private static SurveyInstance MapInstance(IDataReader reader, ref int startingIndex)
+        {
+            SurveyInstance instance = new SurveyInstance();
+            instance.FirstName = reader.GetSafeString(startingIndex++);
+            instance.LastName = reader.GetSafeString(startingIndex++);
+            instance.SurveyId = reader.GetSafeInt32(startingIndex++);
+            instance.SurveyName = reader.GetSafeString(startingIndex++);
+            instance.Description = reader.GetSafeString(startingIndex++);
+            instance.StatusId = reader.GetSafeInt32(startingIndex++);
+            instance.StatusName = reader.GetSafeString(startingIndex++);
+            instance.InstanceId = reader.GetSafeInt32(startingIndex++);
+            instance.DateCreated = reader.GetSafeString(startingIndex++);
+            instance.DateModified = reader.GetSafeString(startingIndex++);
+            instance.QuestionsAndAnswers = reader.DeserializeObject<List<SurveyQuestionsAndAnswers>>(startingIndex++);
+            return instance;
+        }
+        private static SurveyAnswersForChart MapSurveyByQuestionId(IDataReader reader, ref int startingIndex)
+        {
+            SurveyAnswersForChart instance = new SurveyAnswersForChart();
+            instance.Answer = reader.GetSafeString(startingIndex++);
+            instance.AnswerCount = reader.GetSafeInt32(startingIndex++);
+            instance.Text = reader.GetSafeString(startingIndex++);
+            instance.TextCount = reader.GetSafeInt32(startingIndex++);
+            return instance;
+        }
