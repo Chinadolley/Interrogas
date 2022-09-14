@@ -1,0 +1,231 @@
+[Route("api/surveys/instances")]
+    [ApiController]
+    public class SurveyInstanceApiController : BaseApiController
+    {
+         
+        private ISurveyInstanceService _service = null;
+        private IAuthenticationService<int> _authService = null;
+        public SurveyInstanceApiController(ISurveyInstanceService service, ILogger<SurveyInstanceApiController> logger,
+        IAuthenticationService<int> authService) : base(logger)
+        {
+            _service = service;
+            _authService = authService;
+        }
+        [HttpPost]
+        public ActionResult<ItemResponse<int>> Add(SurveyInstanceAddRequest model)
+        {
+            ObjectResult result = null;
+            try
+            {
+                int userId = _authService.GetCurrentUserId();
+                int id = _service.Add(model, userId);
+                ItemResponse<int> response = new ItemResponse<int>() { Item = id };
+                result = Created201(response);
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError(ex.ToString());
+                ErrorResponse response = new ErrorResponse(ex.Message);
+                result = StatusCode(500, response);
+            }
+            return result;
+        }
+        [HttpPut("{id:int}")]
+        public ActionResult<SuccessResponse> Update(SurveyInstanceUpdateRequest model)
+        {
+            int code = 200;
+            BaseResponse response = null;
+            try
+            {
+                _service.Update(model);
+                response = new SuccessResponse();
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                response = new ErrorResponse(ex.Message);
+            }
+            return StatusCode(code, response);
+        }
+        [HttpGet("{id:int}")]
+        public ActionResult<ItemResponse<SurveyInstance>> GetByInstanceId(int id)
+        {
+            int iCode = 200;
+            BaseResponse response = null;
+            try
+            {
+                SurveyInstance instance = _service.GetByInstanceId(id);
+                if (instance == null)
+                {
+                    iCode = 404;
+                    response = new ErrorResponse("Resource not found");
+                }
+                else
+                {
+                    response = new ItemResponse<SurveyInstance> { Item = instance };
+                }
+            }
+            catch (Exception ex)
+            {
+                iCode = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse($"Generic Error: {ex.Message}");
+            }
+            return StatusCode(iCode, response);
+        }
+        [HttpGet]
+        public ActionResult<ItemsResponse<LookUp>> GetSurveyNames()
+        {
+            int iCode = 200;
+            BaseResponse response = null;
+            try
+            {
+                List<LookUp> instance = _service.GetSurveyNames();
+                if (instance == null)
+                {
+                    iCode = 404;
+                    response = new ErrorResponse("Resource not found");
+                }
+                else
+                {
+                    response = new ItemsResponse<LookUp> { Items = instance };
+                }
+            }
+            catch (Exception ex)
+            {
+                iCode = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse($"Generic Error: {ex.Message}");
+            }
+            return StatusCode(iCode, response);
+        }
+        [HttpGet("chart/{id:int}")]
+        public ActionResult<ItemsResponse<SurveyAnswersForChart>> GetByQuestionId(int id)
+        {
+            int iCode = 200;
+            BaseResponse response = null;
+            try
+            {
+                List<SurveyAnswersForChart> list = _service.GetByQuestionId(id);
+                if (list == null)
+                {
+                    iCode = 404;
+                    response = new ErrorResponse("Resource not found");
+                }
+                else
+                {
+                    response = new ItemsResponse<SurveyAnswersForChart> { Items = list };
+                }
+            }
+            catch (Exception ex)
+            {
+                iCode = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse($"Generic Error: {ex.Message}");
+            }
+            return StatusCode(iCode, response);
+        }
+        [HttpGet("survey/{id:int}")]
+        public ActionResult<ItemsResponse<SurveyInstance>> GetBySurveyId(int id)
+        {
+            int iCode = 200;
+            BaseResponse response = null;
+            try
+            {
+                SurveyForChart instance = _service.GetBySurveyId(id);
+                if (instance == null)
+                {
+                    iCode = 404;
+                    response = new ErrorResponse("Resource not found");
+                }
+                else
+                {
+                    response = new ItemResponse<SurveyForChart> { Item = instance };
+                }
+            }
+            catch (Exception ex)
+            {
+                iCode = 500;
+                base.Logger.LogError(ex.ToString());
+                response = new ErrorResponse($"Generic Error: {ex.Message}");
+            }
+            return StatusCode(iCode, response);
+        }
+        [HttpGet("paginate")]
+        public ActionResult<ItemResponse<Paged<SurveyInstance>>> Paginate(int pageIndex, int pageSize)
+        {
+            int code = 200;
+            BaseResponse response = null;
+            try
+            {
+                Paged<SurveyInstance> page = _service.Pagination(pageIndex, pageSize);
+                if (page == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("App Resource not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<Paged<SurveyInstance>> { Item = page };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                response = new ErrorResponse(ex.Message);
+                base.Logger.LogError(ex.ToString());
+            }
+            return StatusCode(code, response);
+        }
+        [HttpGet("search")]
+        public ActionResult<ItemResponse<Paged<SurveyInstance>>> Search(int pageIndex, int pageSize, string query)
+        {
+            int code = 200;
+            BaseResponse response = null;
+            try
+            {
+                Paged<SurveyInstance> page = _service.Search(pageIndex, pageSize, query);
+                if (page == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("App Resource not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<Paged<SurveyInstance>> { Item = page };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                response = new ErrorResponse(ex.Message);
+                base.Logger.LogError(ex.ToString());
+            }
+            return StatusCode(code, response);
+        }
+        [HttpGet("dropdown")]
+        public ActionResult<ItemResponse<Paged<SurveyInstance>>> GetInstancesBySurveyId(int pageIndex, int pageSize, int id)
+        {
+            int code = 200;
+            BaseResponse response = null;
+            try
+            {
+                Paged<SurveyInstance> page = _service.GetInstancesBySurveyId(pageIndex, pageSize, id);
+                if (page == null)
+                {
+                    code = 404;
+                    response = new ErrorResponse("App Resource not found.");
+                }
+                else
+                {
+                    response = new ItemResponse<Paged<SurveyInstance>> { Item = page };
+                }
+            }
+            catch (Exception ex)
+            {
+                code = 500;
+                response = new ErrorResponse(ex.Message);
+                base.Logger.LogError(ex.ToString());
+            }
+            return StatusCode(code, response);
+        }
